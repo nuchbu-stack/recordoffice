@@ -1,11 +1,44 @@
 const form = document.getElementById("surveyForm");
+const q0 = document.getElementById("q0");
+const q0Other = document.getElementById("q0Other");
 const q1Options = document.querySelectorAll("#q1Options .option");
 const q2Section = document.getElementById("q2Section");
 const q2Other = document.getElementById("q2Other");
 const thankYou = document.getElementById("thankYou");
 
+
+// กำหนด URL ของ Google Forms และ Entry ID
+// *** แก้ไขตรงนี้ ***
+const FORM_ACTION_URL = "https://docs.google.com/forms/d/e/1FAIpQLScRmNRVi7R8mrfmSq2fCykusMQ-D7g5fhkgka8wtuoDnEqh8A/formResponse";
+const ENTRIES = {
+  q0: "entry.309877389",
+  q1: "entry.130860608",
+  q2: "entry.656970769",
+  q3: "entry.727335010"
+};
+
+
+let q0Value = "";
 let q1Value = "";
 let q2Value = "";
+
+// แสดง/ซ่อน input อื่นๆ ของ Q0
+q0.addEventListener("change", () => {
+  if (q0.value === "อื่นๆ") {
+    q0Other.classList.remove("hidden");
+  } else {
+    q0Other.classList.add("hidden");
+    q0Other.value = "";
+  }
+  document.getElementById("q0Error").classList.add("hidden");
+  q0Value = q0.value;
+});
+
+q0Other.addEventListener("input", () => {
+  if (q0Other.value.trim() !== "") {
+    document.getElementById("q0Error").classList.add("hidden");
+  }
+});
 
 // Q1 logic
 q1Options.forEach(opt => {
@@ -19,7 +52,6 @@ q1Options.forEach(opt => {
 
     if (q1Value === "1" || q1Value === "2") {
       q2Section.classList.remove("hidden");
-      // ซ่อน error ของ Q2 เมื่อเลือกแล้ว
       document.getElementById("q2Error").classList.add("hidden");    
     } else {
       q2Section.classList.add("hidden");
@@ -34,9 +66,7 @@ q1Options.forEach(opt => {
 // Q2 logic
 document.querySelectorAll('input[name="q2"]').forEach(radio => {
   radio.addEventListener("change", () => {
-    
     document.getElementById("q2Error").classList.add("hidden");
-
     if (radio.value === "อื่นๆ") {
       q2Other.classList.remove("hidden");
     } else {
@@ -57,10 +87,17 @@ q2Other.addEventListener("input", () => {
 // handle submit
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
-
   let valid = true;
-  let finalQ2 = q2Value === "อื่นๆ" ? q2Other.value.trim() : q2Value;
 
+  // Q0 validation
+  const finalQ0 = q0.value === "อื่นๆ" ? q0Other.value.trim() : q0.value;
+  if (!finalQ0) {
+    document.getElementById("q0Error").classList.remove("hidden");
+    valid = false;
+  } else {
+    document.getElementById("q0Error").classList.add("hidden");
+  }
+  
   // Q1 validation
   if (!q1Value) {
     document.getElementById("q1Error").classList.remove("hidden");
@@ -70,30 +107,31 @@ form.addEventListener("submit", async (e) => {
   }
 
   // Q2 validation
-  if (q1Value < 3) {
-    let q2 = document.querySelector("input[name='q2']:checked")?.value || "";
-    if (q2 === "อื่นๆ" && !q2Other.value.trim()) {
-      document.getElementById("q2Error").classList.remove("hidden");
-      valid = false;
-    } else if (!q2) {
+  let finalQ2 = "";
+  if (q1Value === "1" || q1Value === "2") {
+    let q2Checked = document.querySelector("input[name='q2']:checked");
+    if (!q2Checked) {
       document.getElementById("q2Error").classList.remove("hidden");
       valid = false;
     } else {
-      document.getElementById("q2Error").classList.add("hidden");
+      finalQ2 = q2Checked.value === "อื่นๆ" ? q2Other.value.trim() : q2Checked.value;
+      if (q2Checked.value === "อื่นๆ" && !finalQ2) {
+        document.getElementById("q2Error").classList.remove("hidden");
+        valid = false;
+      } else {
+        document.getElementById("q2Error").classList.add("hidden");
+      }
     }
-  } else {
-    document.getElementById("q2Error").classList.add("hidden");
   }
 
   if (!valid) return;
 
-  // payload
-  const payload = new URLSearchParams({
-    q1: q1Value,
-    q2: finalQ2 || "",
-    q3: document.getElementById("q3").value.trim()
-  });
-
+  // สร้าง FormData เพื่อส่งข้อมูล
+  const formData = new FormData();
+  formData.append(ENTRIES.q0, finalQ0);
+  formData.append(ENTRIES.q1, q1Value);
+  formData.append(ENTRIES.q2, finalQ2);
+  formData.append(ENTRIES.q3, document.getElementById("q3").value.trim());
 
   // ✅ แสดง thank you page
   form.classList.add("hidden");
@@ -105,12 +143,14 @@ form.addEventListener("submit", async (e) => {
   q1Value = "";
   q2Section.classList.add("hidden");
   q2Other.classList.add("hidden");
+  q0Other.classList.add("hidden");
 
-  // ส่งข้อมูลไป Google Sheet เบื้องหลัง
+  // ส่งข้อมูลไป Google Forms เบื้องหลัง
   try {
-    await fetch("https://script.google.com/macros/s/AKfycbyF047X6I94ZuNqR0Vl9A2yGo2s-n1hXWZ2QrabMwdxJqZzzeEAxAZujDqv5n2jwRs2/exec" + new Date().getTime(), {
+    await fetch(FORM_ACTION_URL, {
       method: "POST",
-      body: payload
+      body: formData,
+      mode: "no-cors"
     });
   } catch (err) {
     console.error("ส่งข้อมูลไม่สำเร็จ (background)", err);
