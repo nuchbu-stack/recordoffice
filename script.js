@@ -12,6 +12,7 @@ const submitButton = form.querySelector('button[type="submit"]');
 const GAS_URL = "https://script.google.com/macros/s/AKfycbzhiLlkTfyvV5n_JY04FQkVZ1cxgNGu-E4xqvfl-km5ILEzGqgMfYSJDzSvLZJ9QNVe/exec";
 
 let q1Value = "";
+let q2Value = "";
 
 // แสดง/ซ่อน input อื่นๆ ของ Q0
 q0.addEventListener("change", () => {
@@ -37,7 +38,6 @@ q1Options.forEach(opt => {
     opt.classList.add("active");
     q1Value = opt.dataset.value;
 
-    // ซ่อน error ของ Q1 เมื่อเลือกแล้ว
     document.getElementById("q1Error").classList.add("hidden");
 
     if (q1Value === "1" || q1Value === "2") {
@@ -79,6 +79,7 @@ form.addEventListener("submit", async (e) => {
 
   // Validation
   const finalQ0 = q0.value === "อื่นๆ" ? q0Other.value.trim() : q0.value;
+  
   if (!finalQ0) {
     document.getElementById("q0Error").classList.remove("hidden");
     valid = false;
@@ -114,11 +115,7 @@ form.addEventListener("submit", async (e) => {
     return;
   }
 
-  // แสดงสถานะ "กำลังบันทึก" และปิดการใช้งานปุ่ม
-  submitButton.disabled = true;
-  submitButton.textContent = "กำลังบันทึกข้อมูล...";
-
-  // ✅ เปลี่ยนมาใช้ URLSearchParams แทน JSON เพื่อแก้ปัญหา CORS
+  // ✅ เปลี่ยนวิธีส่งข้อมูลเพื่อแก้ปัญหา CORS โดยใช้ URLSearchParams และไม่ต้องระบุ Header
   const payload = new URLSearchParams({
     q0: finalQ0,
     q1: q1Value,
@@ -126,34 +123,29 @@ form.addEventListener("submit", async (e) => {
     q3: document.getElementById("q3").value.trim()
   });
 
-  try {
-    const res = await fetch(GAS_URL, {
-      method: "POST",
-      body: payload
-    });
+    // ✅ ไปหน้า Thank You ทันที
+  form.classList.add("hidden");
+  thankYou.classList.remove("hidden");
 
-    const data = await res.json();
+  // Reset form
+  form.reset();
+  q1Options.forEach(o => o.classList.remove("active"));
+  q1Value = "";
+  q2Value = "";
+  q2Section.classList.add("hidden");
+  q2Other.classList.add("hidden");
 
-    if (data.status === "success") {
-      form.classList.add("hidden");
-      thankYou.classList.remove("hidden");
-      form.reset();
-      q1Options.forEach(o => o.classList.remove("active"));
-      q1Value = "";
-      q2Section.classList.add("hidden");
-      q2Other.classList.add("hidden");
-      q0Other.classList.add("hidden");
-    } else {
-      throw new Error(data.message || "Unknown error");
-    }
-  } catch (err) {
-    alert("เกิดข้อผิดพลาดในการบันทึก กรุณาลองใหม่");
-    console.error("Error submitting form:", err);
-  } finally {
-    submitButton.disabled = false;
-    submitButton.textContent = "ส่งแบบประเมิน";
-  }
+    // ✅ ส่งข้อมูลไปเบื้องหลัง (ไม่ต้องรอผลลัพธ์)
+  fetch(GAS_URL + "?cachebust=" + new Date().getTime(), {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams(payload)
+  }).catch(err => {
+    console.error("ส่งข้อมูลไม่สำเร็จ (background)", err);
+  });
+
 });
+
 
 // ปุ่มทำใหม่
 document.getElementById("againBtn").addEventListener("click", () => {
