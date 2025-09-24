@@ -118,22 +118,20 @@ form.addEventListener("submit", async (e) => {
   submitButton.disabled = true;
   submitButton.textContent = "กำลังบันทึกข้อมูล...";
 
-  // Payload
-  const payload = {
+  // ✅ เปลี่ยนมาใช้ URLSearchParams แทน JSON เพื่อแก้ปัญหา CORS
+  const payload = new URLSearchParams({
     q0: finalQ0,
     q1: q1Value,
     q2: finalQ2,
     q3: document.getElementById("q3").value.trim()
-  };
+  });
 
   try {
     const res = await fetch(GAS_URL, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(payload)
+      body: payload
     });
+
     const data = await res.json();
 
     if (data.status === "success") {
